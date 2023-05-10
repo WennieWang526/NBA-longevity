@@ -1,6 +1,6 @@
 ---
 title: "Stat 632 Final Project"
-author: 'Michael Pantoja Collasso, Yuanyuan Fan, Wennie Wang'
+author: 'Michael P, Yuanyuan F, Wennie W'
 date: "2023-04-27"
 output: pdf_document
 ---
