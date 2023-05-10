@@ -1,0 +1,210 @@
+---
+title: "Stat 632 Final Project"
+author: 'Michael Pantoja Collasso, Yuanyuan Fan, Wennie Wang'
+date: "2023-04-27"
+output: pdf_document
+---
+
+### Interested in Predict 5-Year Career Longevity for NBA Rookies y = 0 if career years played < 5 y = 1 if career years played >= 5
+
+resource: data.world
+<https://data.world/exercises/logistic-regression-exercise-1>
+
+### Description:
+
+Name: names for NBA players 
+
+GP: games played 
+
+MIN: minutes played 
+
+PTS:points per game
+
+FGM: field goals made 
+
+FGA: field goal attempts 
+
+FG.: field goal percent 
+
+X3P.Made: 3 points made 
+
+X3PA: 3 points attempts 
+
+X3P.: 3 points percent 
+
+FTM: free throw amde 
+
+FTA: free throw attempts 
+
+FT.: free throw percent 
+
+OREB: offensice rebounds 
+
+DREB: defensice rebounds 
+
+AST: assists 
+
+STL: steals 
+
+BLK: blocks 
+
+TOV: turnovers 
+
+TARGET_5Yrs: outcome, 1 if career length >=5 yrs, 0 if career length < 5 yrs
+
+#### Full Model: 
+$$log[\frac{P({Target5Yrs})} {1-P({Target5Yrs})}] =\beta_{0}+\beta_{1}GP+\beta_{2}MIN+...+\beta_{18}BLK+\beta_{19}TOV+ \epsilon$$
+#### Hypothese: 
+
+$H_0: \beta_1 = \beta_2 = ...= \beta_{19} = 0$
+
+$H_1: \beta_i\neq0, (i = 1,2,3,...19)$
+
+significant level at $\alpha = 0.05$
+
+#### Estimated Model
+$log[\frac{P({Target5Yrs})} {1-P({Target5Yrs})}]=-4.22+0.04GP-0.05MIN+0.09FGA+0.02FG.+$
+
+$3.15X3P.Made-1.06X3PA++0.02FT.-1.02DREB+0.86REB+0.25AST +0.56BLK$
+
+
+```{r}
+library(car)
+library(ggplot2)
+library(pROC)
+NBA <- read.csv("nba.csv")
+```
+
+```{r}
+NBA$TARGET_5Yrs <- as.factor(NBA$TARGET_5Yrs)
+```
+
+```{r}
+NBA <- na.omit(NBA)
+summary(NBA)
+```
+
+```{r message = FALSE}
+# scatter Matrix
+library(GGally)
+
+# Subset the data to predictor variables and the response variable
+predictors1 <- NBA[, 2:6]
+response <- NBA$TARGET_5Yrs
+
+# Combine predictors and response variable into one data frame
+data1 <- cbind(predictors1, response)
+
+# Create the scatterplot matrix with GGally
+ggpairs(data = data1, columns = 1:5, aes(color = response))
+```
+
+```{r message = FALSE}
+predictors2 <- NBA[, 7:12]
+data2 <- cbind(predictors2, response)
+ggpairs(data = data2, columns = 1:6, aes(color = response))
+```
+
+
+```{r message = FALSE}
+predictors3 <- NBA[, 13:16]
+data3 <- cbind(predictors3, response)
+ggpairs(data = data3, columns = 1:4, aes(color = response))
+```
+
+
+```{r message = FALSE}
+predictors4 <- NBA[, 17:20]
+data4 <- cbind(predictors4, response)
+ggpairs(data = data4, columns = 1:4, aes(color = response))
+```
+
+```{r}
+model1 <- glm(TARGET_5Yrs ~ . - Name, data = NBA, family = "binomial")
+summary(model1)
+```
+
+```{r}
+model2 <- stats::step(model1, trace = 0)
+```
+
+```{r}
+summary(model2)
+```
+
+```{r}
+set.seed(123)
+```
+
+```{r}
+n <- nrow(NBA); n
+```
+
+```{r}
+floor(0.7*n)
+```
+
+```{r}
+train <- sample(1:n, 930)
+```
+
+```{r}
+glm_train <- glm(
+                 TARGET_5Yrs ~ GP + MIN + FGA + FG. + X3P.Made + X3PA + FT. + DREB + REB + AST + BLK, 
+                 data=NBA, subset = train, family = binomial)
+```
+
+```{r}
+summary(glm_train)
+```
+
+```{r}
+NBA_test <- NBA[-train, ]
+```
+
+```{r}
+probs_test <- predict(glm_train, newdata = NBA_test, type = "response")
+```
+
+```{r}
+length(probs_test)
+```
+
+```{r}
+preds_test <- rep(0, 399)
+preds_test[probs_test > 0.5] <- 1
+```
+
+```{r}
+tb <- table(prediction = preds_test, actual = NBA_test$TARGET_5Yrs)
+addmargins(tb)
+```
+
+```{r}
+roc_obj <- roc(NBA_test$TARGET_5Yrs, probs_test)
+```
+
+```{r}
+plot(1 - roc_obj$specificities, roc_obj$sensitivities, type="l", 
+     xlab = "1 - Specificity", ylab = "Sensitivity")
+
+abline(0, 1, lty=2) # 1-1 line
+```
+
+```{r}
+auc(roc_obj)
+```
+
+```{r}
+# comparing two models ROC curve 
+
+roc_model1 <- roc(NBA$TARGET_5Yrs, predict(model1, type = "response"))
+roc_model2 <- roc(NBA$TARGET_5Yrs, predict(model2, type = "response"))
+
+# Plot ROC curves
+plot(roc_model1, col = "green", main = "ROC Curves", xlim = c(0, 1), ylim = c(0, 1),
+     xlab = "False Positive Rate", ylab = "True Positive Rate")
+lines(roc_model2, col = "red")
+legend("bottomright", legend = c("Model1", "Model2"),
+       col = c("green", "red"), lty = 1, cex = 0.8)
+```
